@@ -47,6 +47,25 @@ public class TinderApiService
     {
         return await _api.PassAsync(userId, sNumber, locale ?? "pt", cancellationToken);
     }
+    
+    public async Task<MatchesResponse> GetMatchesAsync(string? locale = "pt", int count = 60, int message = 0, bool isTinderU = false, bool includeConversations = true, CancellationToken cancellationToken = default)
+    {
+        return await _api.GetMatchesAsync(locale ?? "pt", count, message, isTinderU, includeConversations, cancellationToken);
+    }
+    
+    public async Task<SendMessageResponse> SendMessageAsync(string matchId, string userId, string otherId, string message, string? locale = "pt", CancellationToken cancellationToken = default)
+    {
+        var request = new SendMessageRequest
+        {
+            UserId = userId,
+            OtherId = otherId,
+            MatchId = matchId,
+            SessionId = null,
+            Message = message
+        };
+        
+        return await _api.SendMessageAsync(matchId, request, locale ?? "pt", cancellationToken);
+    }
 }
 
 public class TinderApiMessageHandler : DelegatingHandler
