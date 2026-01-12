@@ -13,6 +13,11 @@ var config = new TinderApiConfig
 
 var message = Environment.GetEnvironmentVariable("TINDER_MESSAGE") ?? "Hi!";
 
+var minAge = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MIN_AGE"), out var minAgeValue) ? minAgeValue : 20;
+var maxAge = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MAX_AGE"), out var maxAgeValue) ? maxAgeValue : 50;
+var maxDistanceKm = double.TryParse(Environment.GetEnvironmentVariable("TINDER_MAX_DISTANCE_KM"), out var maxDistanceValue) ? maxDistanceValue : 15.0;
+var minPhotos = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MIN_PHOTOS"), out var minPhotosValue) ? minPhotosValue : 6;
+
 var service = new TinderApiService(config);
 
 var recsTask = Task.Run(async () =>
@@ -43,9 +48,9 @@ var recsTask = Task.Run(async () =>
                     Console.WriteLine($"Photos: {photoCount}");
                     
                     bool meetsCriteria = age.HasValue && 
-                                        age >= 20 && age <= 50 && 
-                                        distanceKm <= 15 && 
-                                        photoCount >= 6;
+                                        age >= minAge && age <= maxAge && 
+                                        distanceKm <= maxDistanceKm && 
+                                        photoCount >= minPhotos;
 
                     if (meetsCriteria)
                     {
