@@ -17,13 +17,18 @@ var minAge = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MIN_AGE"), 
 var maxAge = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MAX_AGE"), out var maxAgeValue) ? maxAgeValue : 50;
 var maxDistanceKm = double.TryParse(Environment.GetEnvironmentVariable("TINDER_MAX_DISTANCE_KM"), out var maxDistanceValue) ? maxDistanceValue : 15.0;
 var minPhotos = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MIN_PHOTOS"), out var minPhotosValue) ? minPhotosValue : 6;
+var maxErrors = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MAX_ERRORS"), out var maxErrorsValue) ? maxErrorsValue : 3;
+var bioExcludeKeywords = (Environment.GetEnvironmentVariable("TINDER_BIO_EXCLUDE_KEYWORDS") ?? "")
+    .Split(';', StringSplitOptions.RemoveEmptyEntries)
+    .Select(k => k.Trim().ToLowerInvariant())
+    .Where(k => !string.IsNullOrWhiteSpace(k))
+    .ToArray();
 
 var service = new TinderApiService(config);
 
 var recsTask = Task.Run(async () =>
 {
     int consecutiveErrors = 0;
-    const int maxErrors = 3;
 
     while (consecutiveErrors < maxErrors)
     {
@@ -32,7 +37,12 @@ var recsTask = Task.Run(async () =>
             Console.WriteLine("[RECS] Starting recommendations processing...");
             var response = await service.GetRecsCoreAsync(locale: "pt", duos: 0);
 
-            if (response.Meta?.Status == 200 && response.Data?.Results != null)
+            if (response.Meta?.Status != 200)
+            {
+                throw new Exception($"HTTP Status code: {response.Meta?.Status ?? 0}");
+            }
+
+            if (response.Data?.Results != null)
             {
                 Console.WriteLine($"\n[RECS] Found {response.Data.Results.Count} results:\n");
                 
@@ -52,7 +62,17 @@ var recsTask = Task.Run(async () =>
                         Console.WriteLine($"Distance: {distanceKm:F2} km ({result.DistanceMi} miles)");
                         Console.WriteLine($"Photos: {photoCount}");
                         
-                        bool meetsCriteria = age.HasValue && 
+                        var bio = result.User.Bio ?? "";
+                        var bioLower = bio.ToLowerInvariant();
+                        var hasExcludedKeyword = bioExcludeKeywords.Length > 0 && bioExcludeKeywords.Any(keyword => bioLower.Contains(keyword));
+                        
+                        if (hasExcludedKeyword)
+                        {
+                            Console.WriteLine($"X Bio contains excluded keyword. Skipping...");
+                        }
+                        
+                        bool meetsCriteria = !hasExcludedKeyword &&
+                                            age.HasValue && 
                                             age >= minAge && age <= maxAge && 
                                             distanceKm <= maxDistanceKm && 
                                             photoCount >= minPhotos;
@@ -133,7 +153,6 @@ var recsTask = Task.Run(async () =>
             }
             else
             {
-                Console.WriteLine($"[RECS] Status: {response.Meta?.Status}");
                 Console.WriteLine("[RECS] No results found.");
                 consecutiveErrors = 0;
             }
@@ -166,7 +185,6 @@ var recsTask = Task.Run(async () =>
 var matchesTask = Task.Run(async () =>
 {
     int consecutiveErrors = 0;
-    const int maxErrors = 3;
 
     while (consecutiveErrors < maxErrors)
     {
@@ -175,7 +193,12 @@ var matchesTask = Task.Run(async () =>
             Console.WriteLine("[MATCHES] Starting matches processing...");
             var matchesResponse = await service.GetMatchesAsync(locale: "pt", count: 60, message: 0, isTinderU: false, includeConversations: true);
 
-            if (matchesResponse.Meta?.Status == 200 && matchesResponse.Data?.Matches != null)
+            if (matchesResponse.Meta?.Status != 200)
+            {
+                throw new Exception($"HTTP Status code: {matchesResponse.Meta?.Status ?? 0}");
+            }
+
+            if (matchesResponse.Data?.Matches != null)
             {
                 Console.WriteLine($"\n[MATCHES] Found {matchesResponse.Data.Matches.Count} matches:\n");
                 
