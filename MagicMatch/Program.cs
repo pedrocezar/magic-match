@@ -22,218 +22,277 @@ var service = new TinderApiService(config);
 
 var recsTask = Task.Run(async () =>
 {
-    try
+    int consecutiveErrors = 0;
+    const int maxErrors = 3;
+
+    while (consecutiveErrors < maxErrors)
     {
-        Console.WriteLine("Fetching Tinder recommendations...");
-        var response = await service.GetRecsCoreAsync(locale: "pt", duos: 0);
-
-        if (response.Meta?.Status == 200 && response.Data?.Results != null)
+        try
         {
-            Console.WriteLine($"\nFound {response.Data.Results.Count} results:\n");
-            
-            int likesCount = 0;
-            int passesCount = 0;
+            Console.WriteLine("[RECS] Starting recommendations processing...");
+            var response = await service.GetRecsCoreAsync(locale: "pt", duos: 0);
 
-            foreach (var result in response.Data.Results)
+            if (response.Meta?.Status == 200 && response.Data?.Results != null)
             {
-                if (result.User != null)
+                Console.WriteLine($"\n[RECS] Found {response.Data.Results.Count} results:\n");
+                
+                int likesCount = 0;
+                int passesCount = 0;
+
+                foreach (var result in response.Data.Results)
                 {
-                    var age = CalculateAge(result.User.BirthDate);
-                    var distanceKm = ConvertMiToKm(result.DistanceMi);
-                    var photoCount = result.User.Photos?.Count ?? 0;
-                    
-                    Console.WriteLine($"Name: {result.User.Name}");
-                    Console.WriteLine($"Age: {age?.ToString() ?? "N/A"} years old");
-                    Console.WriteLine($"Distance: {distanceKm:F2} km ({result.DistanceMi} miles)");
-                    Console.WriteLine($"Photos: {photoCount}");
-                    
-                    bool meetsCriteria = age.HasValue && 
-                                        age >= minAge && age <= maxAge && 
-                                        distanceKm <= maxDistanceKm && 
-                                        photoCount >= minPhotos;
-
-                    if (meetsCriteria)
+                    if (result.User != null)
                     {
-                        var randomPhoto = result.User.Photos?
-                            .Where(p => !string.IsNullOrEmpty(p.Id))
-                            .OrderBy(x => Guid.NewGuid())
-                            .FirstOrDefault();
+                        var age = CalculateAge(result.User.BirthDate);
+                        var distanceKm = ConvertMiToKm(result.DistanceMi);
+                        var photoCount = result.User.Photos?.Count ?? 0;
                         
-                        if (randomPhoto != null && !string.IsNullOrEmpty(result.User.Id))
+                        Console.WriteLine($"Name: {result.User.Name}");
+                        Console.WriteLine($"Age: {age?.ToString() ?? "N/A"} years old");
+                        Console.WriteLine($"Distance: {distanceKm:F2} km ({result.DistanceMi} miles)");
+                        Console.WriteLine($"Photos: {photoCount}");
+                        
+                        bool meetsCriteria = age.HasValue && 
+                                            age >= minAge && age <= maxAge && 
+                                            distanceKm <= maxDistanceKm && 
+                                            photoCount >= minPhotos;
+
+                        if (meetsCriteria)
                         {
-                            try
+                            var randomPhoto = result.User.Photos?
+                                .Where(p => !string.IsNullOrEmpty(p.Id))
+                                .OrderBy(x => Guid.NewGuid())
+                                .FirstOrDefault();
+                            
+                            if (randomPhoto != null && !string.IsNullOrEmpty(result.User.Id))
                             {
-                                Console.WriteLine($"V Meets criteria! Sending like...");
-
-                                var likeResponse = await service.LikeAsync(
-                                    result.User.Id,
-                                    result.SNumber,
-                                    randomPhoto.Id);
-
-                                if (likeResponse.Status == 200)
+                                try
                                 {
-                                    likesCount++;
-                                    Console.WriteLine($"Like sent!");
+                                    Console.WriteLine($"V Meets criteria! Sending like...");
+
+                                    var likeResponse = await service.LikeAsync(
+                                        result.User.Id,
+                                        result.SNumber,
+                                        randomPhoto.Id);
+
+                                    if (likeResponse.Status == 200)
+                                    {
+                                        likesCount++;
+                                        Console.WriteLine($"Like sent!");
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine($"Error sending like: Status {likeResponse.Status}");
+                                    }
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    Console.WriteLine($"Error sending like: Status {likeResponse.Status}");
+                                    Console.WriteLine($"Error sending like: {ex.Message}");
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"Error sending like: {ex.Message}");
                             }
                         }
-                    }
-                    else
-                    {
-                        if (!string.IsNullOrEmpty(result.User.Id))
+                        else
                         {
-                            try
+                            if (!string.IsNullOrEmpty(result.User.Id))
                             {
-                                Console.WriteLine($"X Does not meet criteria. Sending pass...");
-                                var passResponse = await service.PassAsync(
-                                    result.User.Id, 
-                                    result.SNumber);
-                                
-                                if (passResponse.Status == 200)
+                                try
                                 {
-                                    passesCount++;
-                                    Console.WriteLine($"Pass sent!");
+                                    Console.WriteLine($"X Does not meet criteria. Sending pass...");
+                                    var passResponse = await service.PassAsync(
+                                        result.User.Id, 
+                                        result.SNumber);
+                                    
+                                    if (passResponse.Status == 200)
+                                    {
+                                        passesCount++;
+                                        Console.WriteLine($"Pass sent!");
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine($"Error sending pass: Status {passResponse.Status}");
+                                    }
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    Console.WriteLine($"Error sending pass: Status {passResponse.Status}");
+                                    Console.WriteLine($"Error sending pass: {ex.Message}");
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"Error sending pass: {ex.Message}");
                             }
                         }
+                        
+                        Console.WriteLine(new string('-', 50));
+                        
+                        await RandomDelay(10000, 30000);
                     }
-                    
-                    Console.WriteLine(new string('-', 50));
-                    
-                    await Task.Delay(10000);
                 }
+                
+                Console.WriteLine($"\n[RECS] === Summary ===");
+                Console.WriteLine($"[RECS] Total likes sent: {likesCount}");
+                Console.WriteLine($"[RECS] Total passes sent: {passesCount}");
+                
+                consecutiveErrors = 0;
+            }
+            else
+            {
+                Console.WriteLine($"[RECS] Status: {response.Meta?.Status}");
+                Console.WriteLine("[RECS] No results found.");
+                consecutiveErrors = 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            consecutiveErrors++;
+            Console.WriteLine($"[RECS] Error (Attempt {consecutiveErrors}/{maxErrors}): {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"[RECS] Details: {ex.InnerException.Message}");
             }
             
-            Console.WriteLine($"\n=== Recommendations Summary ===");
-            Console.WriteLine($"Total likes sent: {likesCount}");
-            Console.WriteLine($"Total passes sent: {passesCount}");
+            if (consecutiveErrors >= maxErrors)
+            {
+                Console.WriteLine($"[RECS] Max errors reached ({maxErrors}). Stopping recommendations task.");
+                return;
+            }
         }
-        else
+
+        if (consecutiveErrors < maxErrors)
         {
-            Console.WriteLine($"Status: {response.Meta?.Status}");
-            Console.WriteLine("No results found.");
-        }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Error fetching recommendations: {ex.Message}");
-        if (ex.InnerException != null)
-        {
-            Console.WriteLine($"Details: {ex.InnerException.Message}");
+            var waitMinutes = RandomDelayMinutes(30, 120);
+            Console.WriteLine($"[RECS] Waiting {waitMinutes} minutes before next execution...");
+            await Task.Delay(waitMinutes * 60 * 1000);
         }
     }
 });
 
 var matchesTask = Task.Run(async () =>
 {
-    try
+    int consecutiveErrors = 0;
+    const int maxErrors = 3;
+
+    while (consecutiveErrors < maxErrors)
     {
-        Console.WriteLine("Fetching matches...");
-        var matchesResponse = await service.GetMatchesAsync(locale: "pt", count: 60, message: 0, isTinderU: false, includeConversations: true);
-
-        if (matchesResponse.Meta?.Status == 200 && matchesResponse.Data?.Matches != null)
+        try
         {
-            Console.WriteLine($"\nFound {matchesResponse.Data.Matches.Count} matches:\n");
-            
-            int messagesSent = 0;
+            Console.WriteLine("[MATCHES] Starting matches processing...");
+            var matchesResponse = await service.GetMatchesAsync(locale: "pt", count: 60, message: 0, isTinderU: false, includeConversations: true);
 
-            foreach (var match in matchesResponse.Data.Matches)
+            if (matchesResponse.Meta?.Status == 200 && matchesResponse.Data?.Matches != null)
             {
-                if (match.Person != null && 
-                    !string.IsNullOrEmpty(match.Id) && 
-                    !string.IsNullOrEmpty(match.Person.Id) &&
-                    match.LikedContent?.ByCloser != null &&
-                    !string.IsNullOrEmpty(match.LikedContent.ByCloser.UserId) &&
-                    match.MessageCount == 0)
+                Console.WriteLine($"\n[MATCHES] Found {matchesResponse.Data.Matches.Count} matches:\n");
+                
+                int messagesSent = 0;
+
+                foreach (var match in matchesResponse.Data.Matches)
                 {
-                    try
+                    if (match.Person != null && 
+                        !string.IsNullOrEmpty(match.Id) && 
+                        !string.IsNullOrEmpty(match.Person.Id) &&
+                        match.LikedContent?.ByCloser != null &&
+                        !string.IsNullOrEmpty(match.LikedContent.ByCloser.UserId) &&
+                        match.MessageCount == 0)
                     {
-                        Console.WriteLine($"Match: {match.Person.Name} (ID: {match.Id})");
-                        
-                        var personalizedMessage = message.Replace("{{NAME}}", match.Person.Name ?? "");
-                        
-                        var messageParts = personalizedMessage.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)
-                            .Select(part => part.Trim())
-                            .Where(part => !string.IsNullOrWhiteSpace(part))
-                            .ToList();
-
-                        if (messageParts.Count == 0)
+                        try
                         {
-                            messageParts.Add(personalizedMessage.Trim());
-                        }
-
-                        Console.WriteLine($"Sending {messageParts.Count} message(s)");
-                        
-                        foreach (var messagePart in messageParts)
-                        {
-                            Console.WriteLine($"Sending message: {messagePart}");
-
-                            var messageResponse = await service.SendMessageAsync(
-                                match.Id,
-                                match.LikedContent.ByCloser.UserId,
-                                match.Person.Id,
-                                messagePart);
-
-                            if (!string.IsNullOrEmpty(messageResponse.Id))
-                            {
-                                messagesSent++;
-                                Console.WriteLine($"Message sent! Message ID: {messageResponse.Id}");
-                            }
-                            else
-                            {
-                                Console.WriteLine($"Error sending message");
-                            }
+                            Console.WriteLine($"Match: {match.Person.Name} (ID: {match.Id})");
                             
-                            await Task.Delay(5000);
+                            var personalizedMessage = message.Replace("{{NAME}}", match.Person.Name ?? "");
+                            
+                            var messageParts = personalizedMessage.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)
+                                .Select(part => part.Trim())
+                                .Where(part => !string.IsNullOrWhiteSpace(part))
+                                .ToList();
+
+                            if (messageParts.Count == 0)
+                            {
+                                messageParts.Add(personalizedMessage.Trim());
+                            }
+
+                            Console.WriteLine($"Sending {messageParts.Count} message(s)");
+                            
+                            foreach (var messagePart in messageParts)
+                            {
+                                Console.WriteLine($"Sending message: {messagePart}");
+
+                                var messageResponse = await service.SendMessageAsync(
+                                    match.Id,
+                                    match.LikedContent.ByCloser.UserId,
+                                    match.Person.Id,
+                                    messagePart);
+
+                                if (!string.IsNullOrEmpty(messageResponse.Id))
+                                {
+                                    messagesSent++;
+                                    Console.WriteLine($"Message sent! Message ID: {messageResponse.Id}");
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"Error sending message");
+                                }
+                                
+                                await RandomDelay(3000, 7000);
+                            }
                         }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error sending message to {match.Person.Name}: {ex.Message}");
+                        }
+                        
+                        Console.WriteLine(new string('-', 50));
+                        
+                        await RandomDelay(8000, 12000);
                     }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error sending message to {match.Person.Name}: {ex.Message}");
-                    }
-                    
-                    Console.WriteLine(new string('-', 50));
-                    
-                    await Task.Delay(10000);
                 }
+                
+                Console.WriteLine($"\n[MATCHES] === Summary ===");
+                Console.WriteLine($"[MATCHES] Total messages sent: {messagesSent}");
+                
+                consecutiveErrors = 0;
+            }
+            else
+            {
+                Console.WriteLine($"[MATCHES] Status: {matchesResponse.Meta?.Status}");
+                Console.WriteLine("[MATCHES] No matches found.");
+                consecutiveErrors = 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            consecutiveErrors++;
+            Console.WriteLine($"[MATCHES] Error (Attempt {consecutiveErrors}/{maxErrors}): {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"[MATCHES] Details: {ex.InnerException.Message}");
             }
             
-            Console.WriteLine($"\n=== Matches Summary ===");
-            Console.WriteLine($"Total messages sent: {messagesSent}");
+            if (consecutiveErrors >= maxErrors)
+            {
+                Console.WriteLine($"[MATCHES] Max errors reached ({maxErrors}). Stopping matches task.");
+                return;
+            }
         }
-        else
+
+        if (consecutiveErrors < maxErrors)
         {
-            Console.WriteLine($"Matches Status: {matchesResponse.Meta?.Status}");
-            Console.WriteLine("No matches found.");
-        }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Error processing matches: {ex.Message}");
-        if (ex.InnerException != null)
-        {
-            Console.WriteLine($"Details: {ex.InnerException.Message}");
+            var waitMinutes = RandomDelayMinutes(30, 120);
+            Console.WriteLine($"[MATCHES] Waiting {waitMinutes} minutes before next execution...");
+            await Task.Delay(waitMinutes * 60 * 1000);
         }
     }
 });
 
 await Task.WhenAll(recsTask, matchesTask);
+
+static async Task RandomDelay(int minMilliseconds, int maxMilliseconds)
+{
+    var random = new Random();
+    var delay = random.Next(minMilliseconds, maxMilliseconds + 1);
+    await Task.Delay(delay);
+}
+
+static int RandomDelayMinutes(int minMinutes, int maxMinutes)
+{
+    var random = new Random();
+    return random.Next(minMinutes, maxMinutes + 1);
+}
 
 static int? CalculateAge(DateTime? birthDate)
 {
