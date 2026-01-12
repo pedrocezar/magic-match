@@ -116,7 +116,7 @@ var recsTask = Task.Run(async () =>
                     
                     Console.WriteLine(new string('-', 50));
                     
-                    await Task.Delay(1000);
+                    await Task.Delay(10000);
                 }
             }
             
@@ -165,22 +165,42 @@ var matchesTask = Task.Run(async () =>
                     try
                     {
                         Console.WriteLine($"Match: {match.Person.Name} (ID: {match.Id})");
-                        Console.WriteLine($"Sending message: {message}");
+                        
+                        var personalizedMessage = message.Replace("{{NAME}}", match.Person.Name ?? "");
+                        
+                        var messageParts = personalizedMessage.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)
+                            .Select(part => part.Trim())
+                            .Where(part => !string.IsNullOrWhiteSpace(part))
+                            .ToList();
 
-                        var messageResponse = await service.SendMessageAsync(
-                            match.Id,
-                            match.LikedContent.ByCloser.UserId,
-                            match.Person.Id,
-                            message);
-
-                        if (!string.IsNullOrEmpty(messageResponse.Id))
+                        if (messageParts.Count == 0)
                         {
-                            messagesSent++;
-                            Console.WriteLine($"Message sent! Message ID: {messageResponse.Id}");
+                            messageParts.Add(personalizedMessage.Trim());
                         }
-                        else
+
+                        Console.WriteLine($"Sending {messageParts.Count} message(s)");
+                        
+                        foreach (var messagePart in messageParts)
                         {
-                            Console.WriteLine($"Error sending message");
+                            Console.WriteLine($"Sending message: {messagePart}");
+
+                            var messageResponse = await service.SendMessageAsync(
+                                match.Id,
+                                match.LikedContent.ByCloser.UserId,
+                                match.Person.Id,
+                                messagePart);
+
+                            if (!string.IsNullOrEmpty(messageResponse.Id))
+                            {
+                                messagesSent++;
+                                Console.WriteLine($"Message sent! Message ID: {messageResponse.Id}");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Error sending message");
+                            }
+                            
+                            await Task.Delay(5000);
                         }
                     }
                     catch (Exception ex)
@@ -190,7 +210,7 @@ var matchesTask = Task.Run(async () =>
                     
                     Console.WriteLine(new string('-', 50));
                     
-                    await Task.Delay(1000);
+                    await Task.Delay(10000);
                 }
             }
             
