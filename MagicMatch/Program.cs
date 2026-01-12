@@ -15,12 +15,12 @@ var service = new TinderApiService(config);
 
 try
 {
-    Console.WriteLine("Buscando recomendações do Tinder...");
+    Console.WriteLine("Fetching Tinder recommendations...");
     var response = await service.GetRecsCoreAsync(locale: "pt", duos: 0);
 
     if (response.Meta?.Status == 200 && response.Data?.Results != null)
     {
-        Console.WriteLine($"\nEncontrados {response.Data.Results.Count} resultados:\n");
+        Console.WriteLine($"\nFound {response.Data.Results.Count} results:\n");
         
         int likesCount = 0;
         int passesCount = 0;
@@ -33,10 +33,10 @@ try
                 var distanceKm = ConvertMiToKm(result.DistanceMi);
                 var photoCount = result.User.Photos?.Count ?? 0;
                 
-                Console.WriteLine($"Nome: {result.User.Name}");
-                Console.WriteLine($"Idade: {age?.ToString() ?? "N/A"} anos");
-                Console.WriteLine($"Distância: {distanceKm:F2} km ({result.DistanceMi} milhas)");
-                Console.WriteLine($"Fotos: {photoCount}");
+                Console.WriteLine($"Name: {result.User.Name}");
+                Console.WriteLine($"Age: {age?.ToString() ?? "N/A"} years old");
+                Console.WriteLine($"Distance: {distanceKm:F2} km ({result.DistanceMi} miles)");
+                Console.WriteLine($"Photos: {photoCount}");
                 
                 bool meetsCriteria = age.HasValue && 
                                     age >= 20 && age <= 50 && 
@@ -54,7 +54,7 @@ try
                     {
                         try
                         {
-                            Console.WriteLine($"✓ Atende aos critérios! Dando like...");
+                            Console.WriteLine($"V Meets criteria! Sending like...");
 
                             var likeResponse = await service.LikeAsync(
                                 result.User.Id,
@@ -64,18 +64,16 @@ try
                             if (likeResponse.Status == 200)
                             {
                                 likesCount++;
-                                Console.WriteLine($"   Like enviado!");
+                                Console.WriteLine($"Like sent!");
                             }
                             else
                             {
-                                Console.WriteLine($"   Erro ao dar like: Status {likeResponse.Status}");
+                                Console.WriteLine($"Error sending like: Status {likeResponse.Status}");
                             }
-
-                            Console.WriteLine($"   Like enviado!");
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"   Erro ao dar like: {ex.Message}");
+                            Console.WriteLine($"Error sending like: {ex.Message}");
                         }
                     }
                 }
@@ -85,7 +83,7 @@ try
                     {
                         try
                         {
-                            Console.WriteLine($"✗ Não atende aos critérios. Dando pass...");
+                            Console.WriteLine($"X Does not meet criteria. Sending pass...");
                             var passResponse = await service.PassAsync(
                                 result.User.Id, 
                                 result.SNumber);
@@ -93,16 +91,16 @@ try
                             if (passResponse.Status == 200)
                             {
                                 passesCount++;
-                                Console.WriteLine($"   Pass enviado!");
+                                Console.WriteLine($"Pass sent!");
                             }
                             else
                             {
-                                Console.WriteLine($"   Erro ao dar pass: Status {passResponse.Status}");
+                                Console.WriteLine($"Error sending pass: Status {passResponse.Status}");
                             }
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"   Erro ao dar pass: {ex.Message}");
+                            Console.WriteLine($"Error sending pass: {ex.Message}");
                         }
                     }
                 }
@@ -113,22 +111,22 @@ try
             }
         }
         
-        Console.WriteLine($"\n=== Resumo ===");
-        Console.WriteLine($"Total de likes enviados: {likesCount}");
-        Console.WriteLine($"Total de passes enviados: {passesCount}");
+        Console.WriteLine($"\n=== Summary ===");
+        Console.WriteLine($"Total likes sent: {likesCount}");
+        Console.WriteLine($"Total passes sent: {passesCount}");
     }
     else
     {
         Console.WriteLine($"Status: {response.Meta?.Status}");
-        Console.WriteLine("Nenhum resultado encontrado.");
+        Console.WriteLine("No results found.");
     }
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"Erro ao buscar recomendações: {ex.Message}");
+    Console.WriteLine($"Error fetching recommendations: {ex.Message}");
     if (ex.InnerException != null)
     {
-        Console.WriteLine($"Detalhes: {ex.InnerException.Message}");
+        Console.WriteLine($"Details: {ex.InnerException.Message}");
     }
 }
 
