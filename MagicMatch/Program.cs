@@ -24,6 +24,15 @@ var bioExcludeKeywords = (Environment.GetEnvironmentVariable("TINDER_BIO_EXCLUDE
     .Where(k => !string.IsNullOrWhiteSpace(k))
     .ToArray();
 
+var delayRecsMinMs = int.TryParse(Environment.GetEnvironmentVariable("TINDER_DELAY_RECS_MIN_MS"), out var delayRecsMin) ? delayRecsMin : 10000;
+var delayRecsMaxMs = int.TryParse(Environment.GetEnvironmentVariable("TINDER_DELAY_RECS_MAX_MS"), out var delayRecsMax) ? delayRecsMax : 30000;
+var delayMessagesMinMs = int.TryParse(Environment.GetEnvironmentVariable("TINDER_DELAY_MESSAGES_MIN_MS"), out var delayMessagesMin) ? delayMessagesMin : 3000;
+var delayMessagesMaxMs = int.TryParse(Environment.GetEnvironmentVariable("TINDER_DELAY_MESSAGES_MAX_MS"), out var delayMessagesMax) ? delayMessagesMax : 7000;
+var delayMatchesMinMs = int.TryParse(Environment.GetEnvironmentVariable("TINDER_DELAY_MATCHES_MIN_MS"), out var delayMatchesMin) ? delayMatchesMin : 8000;
+var delayMatchesMaxMs = int.TryParse(Environment.GetEnvironmentVariable("TINDER_DELAY_MATCHES_MAX_MS"), out var delayMatchesMax) ? delayMatchesMax : 12000;
+var delayBetweenExecutionsMinMinutes = int.TryParse(Environment.GetEnvironmentVariable("TINDER_DELAY_BETWEEN_EXECUTIONS_MIN_MINUTES"), out var delayExecMin) ? delayExecMin : 30;
+var delayBetweenExecutionsMaxMinutes = int.TryParse(Environment.GetEnvironmentVariable("TINDER_DELAY_BETWEEN_EXECUTIONS_MAX_MINUTES"), out var delayExecMax) ? delayExecMax : 120;
+
 var service = new TinderApiService(config);
 
 var recsTask = Task.Run(async () =>
@@ -141,7 +150,7 @@ var recsTask = Task.Run(async () =>
                         
                         Console.WriteLine(new string('-', 50));
                         
-                        await RandomDelay(10000, 30000);
+                        await RandomDelay(delayRecsMinMs, delayRecsMaxMs);
                     }
                 }
                 
@@ -175,7 +184,7 @@ var recsTask = Task.Run(async () =>
 
         if (consecutiveErrors < maxErrors)
         {
-            var waitMinutes = RandomDelayMinutes(30, 120);
+            var waitMinutes = RandomDelayMinutes(delayBetweenExecutionsMinMinutes, delayBetweenExecutionsMaxMinutes);
             Console.WriteLine($"[RECS] Waiting {waitMinutes} minutes before next execution...");
             await Task.Delay(waitMinutes * 60 * 1000);
         }
@@ -251,7 +260,7 @@ var matchesTask = Task.Run(async () =>
                                     Console.WriteLine($"Error sending message");
                                 }
                                 
-                                await RandomDelay(3000, 7000);
+                                await RandomDelay(delayMessagesMinMs, delayMessagesMaxMs);
                             }
                         }
                         catch (Exception ex)
@@ -261,7 +270,7 @@ var matchesTask = Task.Run(async () =>
                         
                         Console.WriteLine(new string('-', 50));
                         
-                        await RandomDelay(8000, 12000);
+                        await RandomDelay(delayMatchesMinMs, delayMatchesMaxMs);
                     }
                 }
                 
@@ -295,7 +304,7 @@ var matchesTask = Task.Run(async () =>
 
         if (consecutiveErrors < maxErrors)
         {
-            var waitMinutes = RandomDelayMinutes(30, 120);
+            var waitMinutes = RandomDelayMinutes(delayBetweenExecutionsMinMinutes, delayBetweenExecutionsMaxMinutes);
             Console.WriteLine($"[MATCHES] Waiting {waitMinutes} minutes before next execution...");
             await Task.Delay(waitMinutes * 60 * 1000);
         }
