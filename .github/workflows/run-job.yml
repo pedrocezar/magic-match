@@ -28,6 +28,7 @@ jobs:
       - name: Run
         run: dotnet run --project ./MagicMatch/MagicMatch.csproj --configuration Release --no-build
         env:
+          ENVIRONMENT: ${{ vars.ENVIRONMENT }}
           TINDER_AUTH_TOKEN: ${{ secrets.TINDER_AUTH_TOKEN }}
           TINDER_PERSISTENT_DEVICE_ID: ${{ secrets.TINDER_PERSISTENT_DEVICE_ID }}
           TINDER_MESSAGE: ${{ vars.TINDER_MESSAGE }}

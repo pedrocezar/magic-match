@@ -8,6 +8,7 @@ var config = new TinderApiConfig
 
 var message = Environment.GetEnvironmentVariable("TINDER_MESSAGE") ?? "😊";
 
+var isProduction = Environment.GetEnvironmentVariable("ENVIRONMENT") == "production";
 var minAge = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MIN_AGE"), out var minAgeValue) ? minAgeValue : 20;
 var maxAge = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MAX_AGE"), out var maxAgeValue) ? maxAgeValue : 50;
 var maxDistanceKm = double.TryParse(Environment.GetEnvironmentVariable("TINDER_MAX_DISTANCE_KM"), out var maxDistanceValue) ? maxDistanceValue : 15.0;
@@ -30,7 +31,21 @@ var delayBetweenExecutionsMaxMinutes = int.TryParse(Environment.GetEnvironmentVa
 
 var service = new TinderApiService(config);
 
-await OnceExecuteAsync();
+await ExecuteAsync();
+
+async Task ExecuteAsync()
+{
+    if (isProduction)
+    {
+        Console.WriteLine("[INFO] Running in production mode. Executing once.");
+        await OnceExecuteAsync();
+    }
+    else
+    {
+        Console.WriteLine("[INFO] Running in development mode. Executing indefinitely with error handling and delays.");
+        await InfiniteExecuteAsync();
+    }
+}
 
 async Task OnceExecuteAsync()
 {
