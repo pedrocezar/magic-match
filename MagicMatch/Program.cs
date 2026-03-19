@@ -65,7 +65,8 @@ async Task Execute()
         if (consecutiveErrors < maxErrors)
         {
             var waitMinutes = RandomDelayMinutes(delayBetweenExecutionsMinMinutes, delayBetweenExecutionsMaxMinutes);
-            Console.WriteLine($"[ERR] Waiting {waitMinutes} minutes before next execution...");
+            Console.WriteLine(new string('-', 50));
+            Console.WriteLine($"\n[INFO] Waiting {waitMinutes} minutes before next execution...");
             await Task.Delay(waitMinutes * 60 * 1000);
         }
     }
@@ -207,7 +208,8 @@ async Task Matches()
 {
     try
     {
-        Console.WriteLine("[MATCHES] Starting matches processing...");
+        Console.WriteLine(new string('-', 50));
+        Console.WriteLine("\n[MATCHES] Starting matches processing...");
 
         var matchesResponse = await service.GetMatchesAsync(locale: "pt", count: 60, message: 0, isTinderU: false, includeConversations: true);
 
@@ -218,7 +220,7 @@ async Task Matches()
 
         if (matchesResponse.Data?.Matches != null)
         {
-            Console.WriteLine($"\n[MATCHES] Found {matchesResponse.Data.Matches.Count} matches:\n");
+            Console.WriteLine($"\n[MATCHES] Found {matchesResponse.Data.Matches.Count} matches:");
 
             var messagesSent = 0;
 
