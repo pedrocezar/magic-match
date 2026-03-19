@@ -38,11 +38,13 @@ async Task ExecuteAsync()
     if (isProduction)
     {
         Console.WriteLine("[INFO] Running in production mode. Executing once.");
+        Console.WriteLine(new string('-', 50));
         await OnceExecuteAsync();
     }
     else
     {
         Console.WriteLine("[INFO] Running in development mode. Executing indefinitely with error handling and delays.");
+        Console.WriteLine(new string('-', 50));
         await InfiniteExecuteAsync();
     }
 }
@@ -110,7 +112,7 @@ async Task RecsAsync()
 {
     try
     {
-        Console.WriteLine("[RECS] Starting recommendations processing...");
+        Console.WriteLine("\n[RECS] Starting recommendations processing...");
 
         var response = await service.GetRecsCoreAsync(locale: "pt", duos: 0);
 
