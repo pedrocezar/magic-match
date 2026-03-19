@@ -26,4 +26,4 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Run
-        run: dotnet run --project ./src/MagicMatch/MagicMatch.csproj --configuration Release --no-build
+        run: dotnet run --project ./MagicMatch/MagicMatch.csproj --configuration Release --no-build
