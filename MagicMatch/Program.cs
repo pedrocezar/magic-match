@@ -30,9 +30,28 @@ var delayBetweenExecutionsMaxMinutes = int.TryParse(Environment.GetEnvironmentVa
 
 var service = new TinderApiService(config);
 
-await Execute();
+await OnceExecuteAsync();
 
-async Task Execute()
+async Task OnceExecuteAsync()
+{
+    try
+    {
+        await RecsAsync();
+
+        await MatchesAsync();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[ERR] Error occurred: {ex.Message}");
+
+        if (ex.InnerException != null)
+        {
+            Console.WriteLine($"[ERR] Details: {ex.InnerException.Message}");
+        }
+    }
+}
+
+async Task InfiniteExecuteAsync()
 {
     var consecutiveErrors = 0;
 
@@ -40,9 +59,9 @@ async Task Execute()
     {
         try
         {
-            await Recs();
+            await RecsAsync();
 
-            await Matches();
+            await MatchesAsync();
         }
         catch (Exception ex)
         {
@@ -72,7 +91,7 @@ async Task Execute()
     }
 }
 
-async Task Recs()
+async Task RecsAsync()
 {
     try
     {
@@ -185,7 +204,7 @@ async Task Recs()
 
                     Console.WriteLine(new string('-', 50));
 
-                    await RandomDelay(delayRecsMinMs, delayRecsMaxMs);
+                    await RandomDelayAsync(delayRecsMinMs, delayRecsMaxMs);
                 }
             }
 
@@ -204,7 +223,7 @@ async Task Recs()
     }
 }
 
-async Task Matches()
+async Task MatchesAsync()
 {
     try
     {
@@ -277,7 +296,7 @@ async Task Matches()
                                 Console.WriteLine($"Error sending message");
                             }
 
-                            await RandomDelay(delayMessagesMinMs, delayMessagesMaxMs);
+                            await RandomDelayAsync(delayMessagesMinMs, delayMessagesMaxMs);
                         }
                     }
                     catch (Exception ex)
@@ -287,7 +306,7 @@ async Task Matches()
 
                     Console.WriteLine(new string('-', 50));
 
-                    await RandomDelay(delayMatchesMinMs, delayMatchesMaxMs);
+                    await RandomDelayAsync(delayMatchesMinMs, delayMatchesMaxMs);
                 }
                 else
                 {
@@ -310,7 +329,7 @@ async Task Matches()
     }
 }
 
-static async Task RandomDelay(int minMilliseconds, int maxMilliseconds)
+static async Task RandomDelayAsync(int minMilliseconds, int maxMilliseconds)
 {
     var random = new Random();
     var delay = random.Next(minMilliseconds, maxMilliseconds + 1);

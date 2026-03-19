@@ -1,8 +1,8 @@
-name: Run Console Job
+name: Run Magic Match
 
 on:
   schedule:
-    - cron: "*/20 * * * *"
+    - cron: "*/15 * * * *"
 
 jobs:
   run:
