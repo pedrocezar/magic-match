@@ -1,4 +1,5 @@
-﻿using MagicMatch.Services;
+﻿using MagicMatch.Models;
+using MagicMatch.Services;
 
 var config = new TinderApiConfig
 {
@@ -13,6 +14,7 @@ var minAge = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MIN_AGE"), 
 var maxAge = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MAX_AGE"), out var maxAgeValue) ? maxAgeValue : 50;
 var maxDistanceKm = double.TryParse(Environment.GetEnvironmentVariable("TINDER_MAX_DISTANCE_KM"), out var maxDistanceValue) ? maxDistanceValue : 15.0;
 var minPhotos = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MIN_PHOTOS"), out var minPhotosValue) ? minPhotosValue : 6;
+var recsRequestsPerExecution = int.TryParse(Environment.GetEnvironmentVariable("TINDER_RECS_REQUESTS_PER_EXECUTION"), out var recsRequestsValue) ? recsRequestsValue : 3;
 var maxErrors = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MAX_ERRORS"), out var maxErrorsValue) ? maxErrorsValue : 3;
 var bioExcludeKeywords = (Environment.GetEnvironmentVariable("TINDER_BIO_EXCLUDE_KEYWORDS") ?? "")
     .Split(';', StringSplitOptions.RemoveEmptyEntries)
@@ -114,34 +116,55 @@ async Task RecsAsync()
     {
         Console.WriteLine("\n[RECS] Starting recommendations processing...");
 
-        var response = await service.GetRecsCoreAsync(locale: "pt", duos: 0);
+        var recs = new List<Result>();
+        var recsItemCount = 0;
 
-        if (response.Meta?.Status != 200)
+        foreach (var i in Enumerable.Range(1, recsRequestsPerExecution))
         {
-            throw new InvalidOperationException($"HTTP Status code: {response.Meta?.Status ?? 0}");
+            Console.WriteLine($"\n[RECS] Requesting recommendations (Request {i}/{recsRequestsPerExecution})...");
+            var response = await service.GetRecsCoreAsync(locale: "pt", duos: 0);
+
+            if (response.Meta?.Status != 200)
+            {
+                throw new InvalidOperationException($"HTTP Status code Requesting recommendations - (Request {i}/{recsRequestsPerExecution}): {response.Meta?.Status ?? 0}");
+            }
+
+            if (response.Data?.Results != null)
+            {
+                recsItemCount += response.Data.Results.Count;
+                recs.AddRange(response.Data.Results.Where(r => !string.IsNullOrEmpty(r.User?.Id) && 
+                    !recs.Any(x => !string.IsNullOrEmpty(x.User?.Id) && x.User.Id == r.User.Id)));
+                Console.WriteLine($"[RECS] Received {response.Data.Results.Count}/{recsItemCount} recommendations of {recs.Count} (Request {i}/{recsRequestsPerExecution}).");
+            }
+            else
+            {
+                Console.WriteLine($"[RECS] No results found in response (Request {i}/{recsRequestsPerExecution}). Status: {response.Meta?.Status}");
+            }
+
+            await RandomDelayAsync(delayRecsMinMs, delayRecsMaxMs);
         }
 
-        if (response.Data?.Results != null)
+        if (recs.Any())
         {
-            Console.WriteLine($"\n[RECS] Found {response.Data.Results.Count} results:\n");
+            Console.WriteLine($"\n[RECS] Found {recs.Count} results:\n");
 
             var likesCount = 0;
             var passesCount = 0;
 
-            foreach (var result in response.Data.Results)
+            foreach (var rec in recs)
             {
-                if (result.User != null)
+                if (rec.User != null)
                 {
-                    var age = CalculateAge(result.User.BirthDate);
-                    var distanceKm = ConvertMiToKm(result.DistanceMi);
-                    var photoCount = result.User.Photos?.Count ?? 0;
+                    var age = CalculateAge(rec.User.BirthDate);
+                    var distanceKm = ConvertMiToKm(rec.DistanceMi);
+                    var photoCount = rec.User.Photos?.Count ?? 0;
 
-                    Console.WriteLine($"Name: {result.User.Name}");
+                    Console.WriteLine($"Name: {rec.User.Name}");
                     Console.WriteLine($"Age: {age?.ToString() ?? "N/A"} years old");
-                    Console.WriteLine($"Distance: {distanceKm:F2} km ({result.DistanceMi} miles)");
+                    Console.WriteLine($"Distance: {distanceKm:F2} km ({rec.DistanceMi} miles)");
                     Console.WriteLine($"Photos: {photoCount}");
 
-                    var bio = result.User.Bio ?? string.Empty;
+                    var bio = rec.User.Bio ?? string.Empty;
                     var bioLower = bio.ToLowerInvariant();
                     var hasExcludedKeyword = bioExcludeKeywords.Length > 0 && bioExcludeKeywords.Any(bioLower.Contains);
 
@@ -158,20 +181,20 @@ async Task RecsAsync()
 
                     if (meetsCriteria)
                     {
-                        var randomPhoto = result.User.Photos?
+                        var randomPhoto = rec.User.Photos?
                             .Where(p => !string.IsNullOrEmpty(p.Id))
                             .OrderBy(x => Guid.NewGuid())
                             .FirstOrDefault();
 
-                        if (randomPhoto != null && !string.IsNullOrEmpty(result.User.Id))
+                        if (randomPhoto != null && !string.IsNullOrEmpty(rec.User.Id))
                         {
                             try
                             {
                                 Console.WriteLine($"V Meets criteria! Sending like...");
 
                                 var likeResponse = await service.LikeAsync(
-                                    result.User.Id,
-                                    result.SNumber,
+                                    rec.User.Id,
+                                    rec.SNumber,
                                     randomPhoto.Id);
 
                                 if (likeResponse.Status == 200)
@@ -192,15 +215,15 @@ async Task RecsAsync()
                     }
                     else
                     {
-                        if (!string.IsNullOrEmpty(result.User.Id))
+                        if (!string.IsNullOrEmpty(rec.User.Id))
                         {
                             try
                             {
                                 Console.WriteLine($"X Does not meet criteria. Sending pass...");
 
                                 var passResponse = await service.PassAsync(
-                                    result.User.Id,
-                                    result.SNumber);
+                                    rec.User.Id,
+                                    rec.SNumber);
 
                                 if (passResponse.Status == 200)
                                 {
@@ -226,8 +249,8 @@ async Task RecsAsync()
             }
 
             Console.WriteLine($"\n[RECS] === Summary ===");
-            Console.WriteLine($"[RECS] Total likes sent: {likesCount}");
-            Console.WriteLine($"[RECS] Total passes sent: {passesCount}");
+            Console.WriteLine($"[RECS] Total likes sent: {likesCount}/{recs.Count}");
+            Console.WriteLine($"[RECS] Total passes sent: {passesCount}/{recs.Count}");
         }
         else
         {
