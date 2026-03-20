@@ -104,7 +104,8 @@ async Task InfiniteExecuteAsync()
         {
             var waitMinutes = RandomDelayMinutes(delayBetweenExecutionsMinMinutes, delayBetweenExecutionsMaxMinutes);
             Console.WriteLine(new string('-', 50));
-            Console.WriteLine($"\n[INFO] Waiting {waitMinutes} minutes before next execution...");
+            Console.WriteLine($"[INFO] Waiting {waitMinutes} minutes before next execution...");
+            Console.WriteLine(new string('-', 50));
             await Task.Delay(waitMinutes * 60 * 1000);
         }
     }
@@ -114,14 +115,15 @@ async Task RecsAsync()
 {
     try
     {
-        Console.WriteLine("\n[RECS] Starting recommendations processing...");
+        Console.WriteLine("[RECS] Starting recommendations processing...");
+        Console.WriteLine(new string('-', 50));
 
         var recs = new List<Result>();
         var recsItemCount = 0;
 
         foreach (var i in Enumerable.Range(1, recsRequestsPerExecution))
         {
-            Console.WriteLine($"\n[RECS] Requesting recommendations (Request {i}/{recsRequestsPerExecution})...");
+            Console.WriteLine($"[RECS] Requesting recommendations (Request {i}/{recsRequestsPerExecution})...");
             var response = await service.GetRecsCoreAsync(locale: "pt", duos: 0);
 
             if (response.Meta?.Status != 200)
@@ -141,12 +143,14 @@ async Task RecsAsync()
                 Console.WriteLine($"[RECS] No results found in response (Request {i}/{recsRequestsPerExecution}). Status: {response.Meta?.Status}");
             }
 
+            Console.WriteLine(new string('-', 50));
             await RandomDelayAsync(delayRecsMinMs, delayRecsMaxMs);
         }
 
         if (recs.Any())
         {
-            Console.WriteLine($"\n[RECS] Found {recs.Count} results:\n");
+            Console.WriteLine($"[RECS] Found {recs.Count} results:");
+            Console.WriteLine(new string('-', 50));
 
             var likesCount = 0;
             var passesCount = 0;
@@ -248,7 +252,7 @@ async Task RecsAsync()
                 }
             }
 
-            Console.WriteLine($"\n[RECS] === Summary ===");
+            Console.WriteLine($"[RECS] === Summary ===");
             Console.WriteLine($"[RECS] Total likes sent: {likesCount}/{recs.Count}");
             Console.WriteLine($"[RECS] Total passes sent: {passesCount}/{recs.Count}");
         }
@@ -268,7 +272,8 @@ async Task MatchesAsync()
     try
     {
         Console.WriteLine(new string('-', 50));
-        Console.WriteLine("\n[MATCHES] Starting matches processing...");
+        Console.WriteLine("[MATCHES] Starting matches processing...");
+        Console.WriteLine(new string('-', 50));
 
         var matchesResponse = await service.GetMatchesAsync(locale: "pt", count: 60, message: 0, isTinderU: false, includeConversations: true);
 
@@ -279,7 +284,8 @@ async Task MatchesAsync()
 
         if (matchesResponse.Data?.Matches != null)
         {
-            Console.WriteLine($"\n[MATCHES] Found {matchesResponse.Data.Matches.Count} matches:");
+            Console.WriteLine($"[MATCHES] Found {matchesResponse.Data.Matches.Count} matches:");
+            Console.WriteLine(new string('-', 50));
 
             var messagesSent = 0;
 
@@ -300,7 +306,7 @@ async Task MatchesAsync()
                             continue;
                         }
 
-                        Console.WriteLine($"Match: {match.Person.Name} (ID: {match.Id})");
+                        Console.WriteLine($"Match: {match.Person.Name}");
 
                         var personalizedMessage = message.Replace("{{NAME}}", match.Person.Name ?? "");
 
@@ -329,7 +335,7 @@ async Task MatchesAsync()
                             if (!string.IsNullOrEmpty(messageResponse.Id))
                             {
                                 messagesSent++;
-                                Console.WriteLine($"Message sent! Message ID: {messageResponse.Id}");
+                                Console.WriteLine($"Message sent!");
                             }
                             else
                             {
@@ -354,8 +360,9 @@ async Task MatchesAsync()
                 }
             }
 
-            Console.WriteLine($"\n[MATCHES] === Summary ===");
+            Console.WriteLine($"[MATCHES] === Summary ===");
             Console.WriteLine($"[MATCHES] Total messages sent: {messagesSent}");
+            Console.WriteLine($"[MATCHES] Total matches processed: {matchesResponse.Data.Matches.Count}");
         }
         else
         {
