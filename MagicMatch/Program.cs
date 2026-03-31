@@ -10,7 +10,7 @@ var config = new TinderApiConfig
 
 using var loggerFactory = LoggerFactory.Create(builder =>
 {
-    builder.AddSimpleConsole();
+    builder.AddConsole();
 });
 
 var logger = loggerFactory.CreateLogger(nameof(Program));
