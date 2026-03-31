@@ -1,4 +1,4 @@
-using MagicMatch.Models;
+﻿using MagicMatch.Models;
 using MagicMatch.Services;
 using Microsoft.Extensions.Logging;
 
@@ -52,13 +52,13 @@ async Task ExecuteAsync()
     if (isProduction)
     {
         logger.LogInformation("Running in production mode. Executing once.");
-        logger.LogInformation(new string('-', 50));
+        logger.LogInformation(new string('-', 10));
         await OnceExecuteAsync();
     }
     else
     {
         logger.LogInformation("Running in development mode. Executing indefinitely with error handling and delays.");
-        logger.LogInformation(new string('-', 50));
+        logger.LogInformation(new string('-', 10));
         await InfiniteExecuteAsync();
     }
 }
@@ -106,9 +106,9 @@ async Task InfiniteExecuteAsync()
         if (consecutiveErrors < maxErrors)
         {
             var waitMinutes = RandomDelayMinutes(delayBetweenExecutionsMinMinutes, delayBetweenExecutionsMaxMinutes);
-            logger.LogInformation(new string('-', 50));
+            logger.LogInformation(new string('-', 10));
             logger.LogInformation("Waiting {WaitMinutes} minutes before next execution...", waitMinutes);
-            logger.LogInformation(new string('-', 50));
+            logger.LogInformation(new string('-', 10));
             await Task.Delay(waitMinutes * 60 * 1000);
         }
     }
@@ -119,7 +119,7 @@ async Task RecsAsync()
     try
     {
         logger.LogInformation("[RECS] Starting recommendations processing...");
-        logger.LogInformation(new string('-', 50));
+        logger.LogInformation(new string('-', 10));
 
         var recs = new List<Result>();
         var recsItemCount = 0;
@@ -148,14 +148,14 @@ async Task RecsAsync()
                     i, recsRequestsPerExecution, response.Meta?.Status);
             }
 
-            logger.LogInformation(new string('-', 50));
+            logger.LogInformation(new string('-', 10));
             await RandomDelayAsync(delayRecsMinMs, delayRecsMaxMs);
         }
 
         if (recs.Any())
         {
             logger.LogInformation("[RECS] Found {Count} results:", recs.Count);
-            logger.LogInformation(new string('-', 50));
+            logger.LogInformation(new string('-', 10));
 
             var likesCount = 0;
             var passesCount = 0;
@@ -251,7 +251,7 @@ async Task RecsAsync()
                         }
                     }
 
-                    logger.LogInformation(new string('-', 50));
+                    logger.LogInformation(new string('-', 10));
 
                     await RandomDelayAsync(delayRecsMinMs, delayRecsMaxMs);
                 }
@@ -276,9 +276,9 @@ async Task MatchesAsync()
 {
     try
     {
-        logger.LogInformation(new string('-', 50));
+        logger.LogInformation(new string('-', 10));
         logger.LogInformation("[MATCHES] Starting matches processing...");
-        logger.LogInformation(new string('-', 50));
+        logger.LogInformation(new string('-', 10));
 
         var matchesResponse = await service.GetMatchesAsync(locale: "pt", count: 60, message: 0, isTinderU: false, includeConversations: true);
 
@@ -290,7 +290,7 @@ async Task MatchesAsync()
         if (matchesResponse.Data?.Matches != null)
         {
             logger.LogInformation("[MATCHES] Found {Count} matches:", matchesResponse.Data.Matches.Count);
-            logger.LogInformation(new string('-', 50));
+            logger.LogInformation(new string('-', 10));
 
             var messagesSent = 0;
 
@@ -355,7 +355,7 @@ async Task MatchesAsync()
                         logger.LogError(ex, "Error sending message to {Name}", match.Person.Name);
                     }
 
-                    logger.LogInformation(new string('-', 50));
+                    logger.LogInformation(new string('-', 10));
 
                     await RandomDelayAsync(delayMatchesMinMs, delayMatchesMaxMs);
                 }
