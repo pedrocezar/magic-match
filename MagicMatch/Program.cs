@@ -1,4 +1,4 @@
-﻿using MagicMatch.Models;
+using MagicMatch.Models;
 using MagicMatch.Services;
 using Microsoft.Extensions.Logging;
 
@@ -42,6 +42,7 @@ var delayMatchesMinMs = int.TryParse(Environment.GetEnvironmentVariable("TINDER_
 var delayMatchesMaxMs = int.TryParse(Environment.GetEnvironmentVariable("TINDER_DELAY_MATCHES_MAX_MS"), out var delayMatchesMax) ? delayMatchesMax : 12000;
 var delayBetweenExecutionsMinMinutes = int.TryParse(Environment.GetEnvironmentVariable("TINDER_DELAY_BETWEEN_EXECUTIONS_MIN_MINUTES"), out var delayExecMin) ? delayExecMin : 30;
 var delayBetweenExecutionsMaxMinutes = int.TryParse(Environment.GetEnvironmentVariable("TINDER_DELAY_BETWEEN_EXECUTIONS_MAX_MINUTES"), out var delayExecMax) ? delayExecMax : 120;
+var minNameLength = int.TryParse(Environment.GetEnvironmentVariable("TINDER_MIN_NAME_LENGTH"), out var minNameLengthValue) ? minNameLengthValue : 2;
 
 var service = new TinderApiService(config);
 
@@ -167,6 +168,7 @@ async Task RecsAsync()
                     var age = CalculateAge(rec.User.BirthDate);
                     var distanceKm = ConvertMiToKm(rec.DistanceMi);
                     var photoCount = rec.User.Photos?.Count ?? 0;
+                    var nameLength = rec.User.Name?.Length ?? 0;
 
                     logger.LogInformation("Name: {Name}", rec.User.Name);
                     logger.LogInformation("Age: {Age} years old", age?.ToString() ?? "N/A");
@@ -183,6 +185,7 @@ async Task RecsAsync()
                     }
 
                     var meetsCriteria = !hasExcludedKeyword &&
+                                        nameLength >= minNameLength &&
                                         age.HasValue &&
                                         age >= minAge && age <= maxAge &&
                                         distanceKm <= maxDistanceKm &&
