@@ -10,7 +10,7 @@ var config = new TinderApiConfig
 
 using var loggerFactory = LoggerFactory.Create(builder =>
 {
-    builder.AddConsole(options =>
+    builder.AddSimpleConsole(options =>
     {
         options.SingleLine = true;
         options.TimestampFormat = "HH:mm:ss ";
