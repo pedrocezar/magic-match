@@ -13,7 +13,7 @@ using var loggerFactory = LoggerFactory.Create(builder =>
     builder.AddSimpleConsole();
 });
 
-var logger = loggerFactory.CreateLogger();
+var logger = loggerFactory.CreateLogger(nameof(Program));
 
 var message = Environment.GetEnvironmentVariable("TINDER_MESSAGE") ?? "😊";
 
