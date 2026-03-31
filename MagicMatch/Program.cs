@@ -1,4 +1,4 @@
-using MagicMatch.Models;
+﻿using MagicMatch.Models;
 using MagicMatch.Services;
 using Microsoft.Extensions.Logging;
 
@@ -10,14 +10,10 @@ var config = new TinderApiConfig
 
 using var loggerFactory = LoggerFactory.Create(builder =>
 {
-    builder.AddSimpleConsole(options =>
-    {
-        options.SingleLine = true;
-        options.TimestampFormat = "HH:mm:ss ";
-    });
+    builder.AddSimpleConsole();
 });
 
-var logger = loggerFactory.CreateLogger("MagicMatch");
+var logger = loggerFactory.CreateLogger();
 
 var message = Environment.GetEnvironmentVariable("TINDER_MESSAGE") ?? "😊";
 
