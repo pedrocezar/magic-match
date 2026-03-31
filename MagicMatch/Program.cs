@@ -56,7 +56,6 @@ async Task OnceExecuteAsync()
     try
     {
         await RecsAsync();
-
         await MatchesAsync();
     }
     catch (Exception ex)
@@ -67,6 +66,8 @@ async Task OnceExecuteAsync()
         {
             Console.WriteLine($"[ERR] Details: {ex.InnerException.Message}");
         }
+
+        Environment.Exit(1);
     }
 }
 
