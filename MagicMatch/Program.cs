@@ -1,11 +1,23 @@
-﻿using MagicMatch.Models;
+using MagicMatch.Models;
 using MagicMatch.Services;
+using Microsoft.Extensions.Logging;
 
 var config = new TinderApiConfig
 {
     AuthToken = Environment.GetEnvironmentVariable("TINDER_AUTH_TOKEN"),
     PersistentDeviceId = Environment.GetEnvironmentVariable("TINDER_PERSISTENT_DEVICE_ID")
 };
+
+using var loggerFactory = LoggerFactory.Create(builder =>
+{
+    builder.AddSimpleConsole(options =>
+    {
+        options.SingleLine = true;
+        options.TimestampFormat = "HH:mm:ss ";
+    });
+});
+
+var logger = loggerFactory.CreateLogger("MagicMatch");
 
 var message = Environment.GetEnvironmentVariable("TINDER_MESSAGE") ?? "😊";
 
@@ -39,14 +51,14 @@ async Task ExecuteAsync()
 {
     if (isProduction)
     {
-        Console.WriteLine("[INFO] Running in production mode. Executing once.");
-        Console.WriteLine(new string('-', 50));
+        logger.LogInformation("Running in production mode. Executing once.");
+        logger.LogInformation(new string('-', 50));
         await OnceExecuteAsync();
     }
     else
     {
-        Console.WriteLine("[INFO] Running in development mode. Executing indefinitely with error handling and delays.");
-        Console.WriteLine(new string('-', 50));
+        logger.LogInformation("Running in development mode. Executing indefinitely with error handling and delays.");
+        logger.LogInformation(new string('-', 50));
         await InfiniteExecuteAsync();
     }
 }
@@ -60,12 +72,7 @@ async Task OnceExecuteAsync()
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"[ERR] Error occurred: {ex.Message}");
-
-        if (ex.InnerException != null)
-        {
-            Console.WriteLine($"[ERR] Details: {ex.InnerException.Message}");
-        }
+        logger.LogError(ex, "Error occurred while executing once.");
 
         Environment.Exit(1);
     }
@@ -87,16 +94,11 @@ async Task InfiniteExecuteAsync()
         {
             consecutiveErrors++;
 
-            Console.WriteLine($"[ERR] Error (Attempt {consecutiveErrors}/{maxErrors}): {ex.Message}");
-
-            if (ex.InnerException != null)
-            {
-                Console.WriteLine($"[ERR] Details: {ex.InnerException.Message}");
-            }
+            logger.LogError(ex, "Error (Attempt {Attempt}/{MaxErrors})", consecutiveErrors, maxErrors);
 
             if (consecutiveErrors >= maxErrors)
             {
-                Console.WriteLine($"[ERR] Max errors reached ({maxErrors}). Stopping recommendations task.");
+                logger.LogError("Max errors reached ({MaxErrors}). Stopping recommendations task.", maxErrors);
                 return;
             }
         }
@@ -104,9 +106,9 @@ async Task InfiniteExecuteAsync()
         if (consecutiveErrors < maxErrors)
         {
             var waitMinutes = RandomDelayMinutes(delayBetweenExecutionsMinMinutes, delayBetweenExecutionsMaxMinutes);
-            Console.WriteLine(new string('-', 50));
-            Console.WriteLine($"[INFO] Waiting {waitMinutes} minutes before next execution...");
-            Console.WriteLine(new string('-', 50));
+            logger.LogInformation(new string('-', 50));
+            logger.LogInformation("Waiting {WaitMinutes} minutes before next execution...", waitMinutes);
+            logger.LogInformation(new string('-', 50));
             await Task.Delay(waitMinutes * 60 * 1000);
         }
     }
@@ -116,15 +118,15 @@ async Task RecsAsync()
 {
     try
     {
-        Console.WriteLine("[RECS] Starting recommendations processing...");
-        Console.WriteLine(new string('-', 50));
+        logger.LogInformation("[RECS] Starting recommendations processing...");
+        logger.LogInformation(new string('-', 50));
 
         var recs = new List<Result>();
         var recsItemCount = 0;
 
         foreach (var i in Enumerable.Range(1, recsRequestsPerExecution))
         {
-            Console.WriteLine($"[RECS] Requesting recommendations (Request {i}/{recsRequestsPerExecution})...");
+            logger.LogInformation("[RECS] Requesting recommendations (Request {Request}/{TotalRequests})...", i, recsRequestsPerExecution);
             var response = await service.GetRecsCoreAsync(locale: "pt", duos: 0);
 
             if (response.Meta?.Status != 200)
@@ -137,21 +139,23 @@ async Task RecsAsync()
                 recsItemCount += response.Data.Results.Count;
                 recs.AddRange(response.Data.Results.Where(r => !string.IsNullOrEmpty(r.User?.Id) && 
                     !recs.Any(x => !string.IsNullOrEmpty(x.User?.Id) && x.User.Id == r.User.Id)));
-                Console.WriteLine($"[RECS] Received {response.Data.Results.Count}/{recsItemCount} recommendations of {recs.Count} (Request {i}/{recsRequestsPerExecution}).");
+                logger.LogInformation("[RECS] Received {BatchCount}/{TotalItems} recommendations of {DistinctCount} (Request {Request}/{TotalRequests}).",
+                    response.Data.Results.Count, recsItemCount, recs.Count, i, recsRequestsPerExecution);
             }
             else
             {
-                Console.WriteLine($"[RECS] No results found in response (Request {i}/{recsRequestsPerExecution}). Status: {response.Meta?.Status}");
+                logger.LogWarning("[RECS] No results found in response (Request {Request}/{TotalRequests}). Status: {Status}",
+                    i, recsRequestsPerExecution, response.Meta?.Status);
             }
 
-            Console.WriteLine(new string('-', 50));
+            logger.LogInformation(new string('-', 50));
             await RandomDelayAsync(delayRecsMinMs, delayRecsMaxMs);
         }
 
         if (recs.Any())
         {
-            Console.WriteLine($"[RECS] Found {recs.Count} results:");
-            Console.WriteLine(new string('-', 50));
+            logger.LogInformation("[RECS] Found {Count} results:", recs.Count);
+            logger.LogInformation(new string('-', 50));
 
             var likesCount = 0;
             var passesCount = 0;
@@ -164,10 +168,10 @@ async Task RecsAsync()
                     var distanceKm = ConvertMiToKm(rec.DistanceMi);
                     var photoCount = rec.User.Photos?.Count ?? 0;
 
-                    Console.WriteLine($"Name: {rec.User.Name}");
-                    Console.WriteLine($"Age: {age?.ToString() ?? "N/A"} years old");
-                    Console.WriteLine($"Distance: {distanceKm:F2} km ({rec.DistanceMi} miles)");
-                    Console.WriteLine($"Photos: {photoCount}");
+                    logger.LogInformation("Name: {Name}", rec.User.Name);
+                    logger.LogInformation("Age: {Age} years old", age?.ToString() ?? "N/A");
+                    logger.LogInformation("Distance: {DistanceKm:F2} km ({DistanceMi} miles)", distanceKm, rec.DistanceMi);
+                    logger.LogInformation("Photos: {PhotoCount}", photoCount);
 
                     var bio = rec.User.Bio ?? string.Empty;
                     var bioLower = bio.ToLowerInvariant();
@@ -175,7 +179,7 @@ async Task RecsAsync()
 
                     if (hasExcludedKeyword)
                     {
-                        Console.WriteLine($"X Bio contains excluded keyword. Skipping...");
+                        logger.LogInformation("X Bio contains excluded keyword. Skipping...");
                     }
 
                     var meetsCriteria = !hasExcludedKeyword &&
@@ -205,16 +209,16 @@ async Task RecsAsync()
                                 if (likeResponse.Status == 200)
                                 {
                                     likesCount++;
-                                    Console.WriteLine($"Like sent!");
+                                    logger.LogInformation("Like sent!");
                                 }
                                 else
                                 {
-                                    Console.WriteLine($"Error sending like: Status {likeResponse.Status}");
+                                    logger.LogWarning("Error sending like: Status {Status}", likeResponse.Status);
                                 }
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"Error sending like: {ex.Message}");
+                                logger.LogError(ex, "Error sending like.");
                             }
                         }
                     }
@@ -233,33 +237,33 @@ async Task RecsAsync()
                                 if (passResponse.Status == 200)
                                 {
                                     passesCount++;
-                                    Console.WriteLine($"Pass sent!");
+                                    logger.LogInformation("Pass sent!");
                                 }
                                 else
                                 {
-                                    Console.WriteLine($"Error sending pass: Status {passResponse.Status}");
+                                    logger.LogWarning("Error sending pass: Status {Status}", passResponse.Status);
                                 }
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"Error sending pass: {ex.Message}");
+                                logger.LogError(ex, "Error sending pass.");
                             }
                         }
                     }
 
-                    Console.WriteLine(new string('-', 50));
+                    logger.LogInformation(new string('-', 50));
 
                     await RandomDelayAsync(delayRecsMinMs, delayRecsMaxMs);
                 }
             }
 
-            Console.WriteLine($"[RECS] === Summary ===");
-            Console.WriteLine($"[RECS] Total likes sent: {likesCount}/{recs.Count}");
-            Console.WriteLine($"[RECS] Total passes sent: {passesCount}/{recs.Count}");
+            logger.LogInformation("[RECS] === Summary ===");
+            logger.LogInformation("[RECS] Total likes sent: {Likes}/{Total}", likesCount, recs.Count);
+            logger.LogInformation("[RECS] Total passes sent: {Passes}/{Total}", passesCount, recs.Count);
         }
         else
         {
-            Console.WriteLine("[RECS] No results found.");
+            logger.LogInformation("[RECS] No results found.");
         }
     }
     catch (Exception ex)
@@ -272,9 +276,9 @@ async Task MatchesAsync()
 {
     try
     {
-        Console.WriteLine(new string('-', 50));
-        Console.WriteLine("[MATCHES] Starting matches processing...");
-        Console.WriteLine(new string('-', 50));
+        logger.LogInformation(new string('-', 50));
+        logger.LogInformation("[MATCHES] Starting matches processing...");
+        logger.LogInformation(new string('-', 50));
 
         var matchesResponse = await service.GetMatchesAsync(locale: "pt", count: 60, message: 0, isTinderU: false, includeConversations: true);
 
@@ -285,8 +289,8 @@ async Task MatchesAsync()
 
         if (matchesResponse.Data?.Matches != null)
         {
-            Console.WriteLine($"[MATCHES] Found {matchesResponse.Data.Matches.Count} matches:");
-            Console.WriteLine(new string('-', 50));
+            logger.LogInformation("[MATCHES] Found {Count} matches:", matchesResponse.Data.Matches.Count);
+            logger.LogInformation(new string('-', 50));
 
             var messagesSent = 0;
 
@@ -303,11 +307,11 @@ async Task MatchesAsync()
 
                         if (string.IsNullOrEmpty(userId))
                         {
-                            Console.WriteLine($"[MATCHES] Could not extract userId from match.Id. Skipping match {match.Id}");
+                            logger.LogWarning("[MATCHES] Could not extract userId from match.Id. Skipping match {MatchId}", match.Id);
                             continue;
                         }
 
-                        Console.WriteLine($"Match: {match.Person.Name}");
+                        logger.LogInformation("Match: {Name}", match.Person.Name);
 
                         var personalizedMessage = message.Replace("{{NAME}}", match.Person.Name ?? "");
 
@@ -321,11 +325,11 @@ async Task MatchesAsync()
                             messageParts.Add(personalizedMessage.Trim());
                         }
 
-                        Console.WriteLine($"Sending {messageParts.Count} message(s)");
+                        logger.LogInformation("Sending {Count} message(s)", messageParts.Count);
 
                         foreach (var messagePart in messageParts)
                         {
-                            Console.WriteLine($"Sending message: {messagePart}");
+                            logger.LogInformation("Sending message: {Message}", messagePart);
 
                             var messageResponse = await service.SendMessageAsync(
                                 match.Id,
@@ -336,11 +340,11 @@ async Task MatchesAsync()
                             if (!string.IsNullOrEmpty(messageResponse.Id))
                             {
                                 messagesSent++;
-                                Console.WriteLine($"Message sent!");
+                                logger.LogInformation("Message sent!");
                             }
                             else
                             {
-                                Console.WriteLine($"Error sending message");
+                                logger.LogWarning("Error sending message");
                             }
 
                             await RandomDelayAsync(delayMessagesMinMs, delayMessagesMaxMs);
@@ -348,27 +352,27 @@ async Task MatchesAsync()
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Error sending message to {match.Person.Name}: {ex.Message}");
+                        logger.LogError(ex, "Error sending message to {Name}", match.Person.Name);
                     }
 
-                    Console.WriteLine(new string('-', 50));
+                    logger.LogInformation(new string('-', 50));
 
                     await RandomDelayAsync(delayMatchesMinMs, delayMatchesMaxMs);
                 }
                 else
                 {
-                    Console.WriteLine($"[MATCHES] Missing required data (Person, Id, Person.Id, or MessageCount > 0). Skipping match.");
+                    logger.LogWarning("[MATCHES] Missing required data (Person, Id, Person.Id, or MessageCount > 0). Skipping match.");
                 }
             }
 
-            Console.WriteLine($"[MATCHES] === Summary ===");
-            Console.WriteLine($"[MATCHES] Total messages sent: {messagesSent}");
-            Console.WriteLine($"[MATCHES] Total matches processed: {matchesResponse.Data.Matches.Count}");
+            logger.LogInformation("[MATCHES] === Summary ===");
+            logger.LogInformation("[MATCHES] Total messages sent: {MessagesSent}", messagesSent);
+            logger.LogInformation("[MATCHES] Total matches processed: {TotalMatches}", matchesResponse.Data.Matches.Count);
         }
         else
         {
-            Console.WriteLine($"[MATCHES] Status: {matchesResponse.Meta?.Status}");
-            Console.WriteLine("[MATCHES] No matches found.");
+            logger.LogInformation("[MATCHES] Status: {Status}", matchesResponse.Meta?.Status);
+            logger.LogInformation("[MATCHES] No matches found.");
         }
     }
     catch (Exception ex)
