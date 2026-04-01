@@ -202,7 +202,7 @@ async Task RecsAsync()
                         {
                             try
                             {
-                                Console.WriteLine($"V Meets criteria! Sending like...");
+                                logger.LogInformation($"V Meets criteria! Sending like...");
 
                                 var likeResponse = await service.LikeAsync(
                                     rec.User.Id,
@@ -231,7 +231,7 @@ async Task RecsAsync()
                         {
                             try
                             {
-                                Console.WriteLine($"X Does not meet criteria. Sending pass...");
+                                logger.LogInformation($"X Does not meet criteria. Sending pass...");
 
                                 var passResponse = await service.PassAsync(
                                     rec.User.Id,
